@@ -12,8 +12,14 @@
   "author": "Eddie Hedges",
   "license": "UNLICENSED",
   "devDependencies": {
+    "@types/node": "^11.13.0",
     "nodemon": "^1.18.10",
     "ts-node": "^8.0.3",
     "typescript": "^3.4.2"
+  },
+  "dependencies": {
+    "@octokit/rest": "^16.23.2",
+    "dotenv": "^7.0.0",
+    "moment": "^2.24.0"
   }
 }
