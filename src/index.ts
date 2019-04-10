@@ -58,7 +58,7 @@ const allPromises = [
     ...orgPromises,
 ]
 
-exports.handler = (event: any, context: any, callback: any) =>
+exports.handler = (event: any, context: any, callback: any) => {
     Promise.all(allPromises)
         .then(results => {
             if (!results.length) {
@@ -161,3 +161,4 @@ exports.handler = (event: any, context: any, callback: any) =>
             console.error('Error resolving all promises', rejectionReason)
             callback(rejectionReason)
         })
+}
