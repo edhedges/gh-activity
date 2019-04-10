@@ -1,5 +1,5 @@
-import fs from 'fs'
 import moment from 'moment'
+import axios from 'axios'
 const Octokit = require('@octokit/rest')
 require('dotenv').config()
 
@@ -9,6 +9,18 @@ if (typeof env.GH_PAT !== 'string' || env.GH_PAT.trim() === '') {
 }
 if (typeof env.GH_USERNAME !== 'string' || env.GH_USERNAME.trim() === '') {
     throw Error('Missing required GH_USERNAME environment variable')
+}
+
+let slackWebhookUrl: string | undefined
+if (
+    typeof env.SLACK_WEBHOOK_URL !== 'string' ||
+    env.SLACK_WEBHOOK_URL.trim() === ''
+) {
+    console.warn(
+        `No 'SLACK_WEBHOOK_URL' environment variable found. Results will be logged to the console.`
+    )
+} else {
+    slackWebhookUrl = env.SLACK_WEBHOOK_URL.trim()
 }
 
 const auth = env.GH_PAT.trim()
@@ -31,7 +43,7 @@ if (typeof env.GH_ORGANIZATIONS === 'string') {
 }
 
 const octokit = new Octokit({
-    auth: env.GH_PAT,
+    auth,
 })
 const orgPromises = organizations.map(org =>
     octokit.paginate('GET /users/:username/events/orgs/:org', {
@@ -46,26 +58,32 @@ const allPromises = [
     ...orgPromises,
 ]
 
-console.log('Starting at: ' + new Date())
 Promise.all(allPromises)
     .then(results => {
-        console.log('Retrieved ' + results.length + ' results at ' + new Date())
         if (!results.length) {
             throw Error('Empty results array upon promises being resolved')
         }
 
         const yesterday = moment.utc().subtract(1, 'day')
-        console.log('Yesterday is ' + yesterday)
         const allResults: any[] = []
         results.forEach(r => {
-            const userResults = r.filter((d: any) => {
-                if (d.actor.login !== username) {
-                    return false
-                }
+            const userResults = r
+                .filter((d: any) => {
+                    if (d.actor.login !== username) {
+                        return false
+                    }
 
-                const createdAtMoment = moment(d.created_at)
-                return yesterday.diff(createdAtMoment, 'days') < 7
-            })
+                    const createdAtMoment = moment(d.created_at)
+                    return yesterday.diff(createdAtMoment, 'days') < 7
+                })
+                .sort(function(a: any, b: any) {
+                    // Turn your strings into dates, and then subtract them
+                    // to get a value that is either negative, positive, or zero.
+                    return (
+                        new Date(b.created_at).getTime() -
+                        new Date(a.created_at).getTime()
+                    )
+                })
             userResults.forEach((rr: any) => {
                 // only add unique ids to results
                 if (allResults.findIndex(ar => ar.id === rr.id) === -1) {
@@ -76,6 +94,14 @@ Promise.all(allPromises)
 
                     // TODO: Break out logic here into functions describing the different
                     // conditional that allow a resutls to be added
+
+                    // Events that should be included:
+                    // - PRs that were closed and merged (done)
+                    // - PRs that were opened and are now closed and merged, but weren't merged by opener
+                    // - Commits made to master branches
+                    // - Repository was started
+                    // - Branch created???
+                    // - Checkout https://developer.github.com/v3/activity/events/types/ to discover other important ones
                     if (
                         rr.type === 'PullRequestEvent' &&
                         rr.payload.action === 'closed' &&
@@ -92,21 +118,37 @@ Promise.all(allPromises)
                 url: pr.html_url,
                 title: pr.title,
                 body: pr.body,
+                createdAt: moment(pr.created_at).format(
+                    'ddd, MMM Do YYYY, h:mm a'
+                ),
             }
         })
-        const filePath = '/tmp/gh-activity-events.json'
-        fs.writeFile(
-            filePath,
-            JSON.stringify({ results: simplifiedResults }),
-            function(err) {
-                if (err) {
-                    console.log(err)
-                } else {
-                    console.log(`File saved to '${filePath}'`)
-                }
-            }
-        )
+        const payloadText =
+            '*My last week on GitHub*\n\n' +
+            simplifiedResults
+                .map(r => {
+                    return `<${r.url}|${r.title}> (${r.createdAt})\n${r.body}`
+                })
+                .join('\n\n')
+
+        if (typeof slackWebhookUrl === 'undefined') {
+            console.log(payloadText)
+        } else {
+            axios
+                .post(slackWebhookUrl, {
+                    text: payloadText,
+                })
+                .then(res => {
+                    console.log('res', res.data, res.status, res.statusText)
+                })
+                .catch(rejectionReason =>
+                    console.error(
+                        'Error POSTing results to slack webhook',
+                        rejectionReason
+                    )
+                )
+        }
     })
     .catch(rejectionReason => {
-        console.log('Error resolving all promises', rejectionReason)
+        console.error('Error resolving all promises', rejectionReason)
     })
