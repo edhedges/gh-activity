@@ -58,7 +58,7 @@ const allPromises = [
     ...orgPromises,
 ]
 
-exports.handler = () =>
+exports.handler = (event: any, context: any, callback: any) =>
     Promise.all(allPromises)
         .then(results => {
             if (!results.length) {
@@ -136,6 +136,8 @@ exports.handler = () =>
 
             if (typeof slackWebhookUrl === 'undefined') {
                 console.log(payloadText)
+                // Indicates success but no information returned to the caller.
+                callback(null, 'gh-activity completed successfully!')
             } else {
                 axios
                     .post(slackWebhookUrl, {
@@ -143,15 +145,19 @@ exports.handler = () =>
                     })
                     .then(_ => {
                         console.log('Successfully posted to slack!')
+                        // Indicates success but no information returned to the caller.
+                        callback(null, 'gh-activity completed successfully!')
                     })
-                    .catch(rejectionReason =>
+                    .catch(rejectionReason => {
                         console.error(
                             'Error POSTing results to slack webhook',
                             rejectionReason
                         )
-                    )
+                        callback(rejectionReason)
+                    })
             }
         })
         .catch(rejectionReason => {
             console.error('Error resolving all promises', rejectionReason)
+            callback(rejectionReason)
         })
