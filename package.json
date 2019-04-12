@@ -5,9 +5,9 @@
     "main": "index.js",
     "scripts": {
         "build": "./node_modules/.bin/tsc",
-        "build:lambda": "rm -rf build && ./node_modules/.bin/tsc && cp -R node_modules build/node_modules && cd build; zip -r ../build.zip *",
+        "build:lambda": "./bin/build-lambda",
         "dev": "./node_modules/nodemon/bin/nodemon.js",
-        "start": "node -e 'require(\"./build/index.js\").handler()'",
+        "start": "node -e 'require(\"./build/index.js\").handler(null, null, function() {})'",
         "test": "echo \"Error: no test specified\" && exit 1"
     },
     "author": "Eddie Hedges",

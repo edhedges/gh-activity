@@ -1,5 +1,6 @@
 import moment from 'moment'
 import axios from 'axios'
+import { Handler, Context, Callback } from 'aws-lambda'
 const Octokit = require('@octokit/rest')
 require('dotenv').config()
 
@@ -58,7 +59,16 @@ const allPromises = [
     ...orgPromises,
 ]
 
-exports.handler = (event: any, context: any, callback: any) => {
+const completeHandler = (callback: Callback<void>, error?: Error) => {
+    callback(error)
+    process.exit(typeof error === 'undefined' ? 0 : 1)
+}
+
+const handler: Handler = async (
+    _event: any,
+    _context: Context,
+    callback: Callback<void>
+): Promise<void> => {
     Promise.all(allPromises)
         .then(results => {
             if (!results.length) {
@@ -135,30 +145,28 @@ exports.handler = (event: any, context: any, callback: any) => {
                     .join('\n\n')
 
             if (typeof slackWebhookUrl === 'undefined') {
-                console.log(payloadText)
-                // Indicates success but no information returned to the caller.
-                callback(null, 'gh-activity completed successfully!')
+                completeHandler(callback)
             } else {
                 axios
                     .post(slackWebhookUrl, {
                         text: payloadText,
                     })
                     .then(_ => {
-                        console.log('Successfully posted to slack!')
-                        // Indicates success but no information returned to the caller.
-                        callback(null, 'gh-activity completed successfully!')
+                        completeHandler(callback)
                     })
                     .catch(rejectionReason => {
                         console.error(
                             'Error POSTing results to slack webhook',
                             rejectionReason
                         )
-                        callback(rejectionReason)
+                        completeHandler(rejectionReason)
                     })
             }
         })
         .catch(rejectionReason => {
             console.error('Error resolving all promises', rejectionReason)
-            callback(rejectionReason)
+            completeHandler(rejectionReason)
         })
 }
+
+exports.handler = handler
