@@ -1,7 +1,7 @@
 import moment from 'moment'
 import axios from 'axios'
 import { Handler, Context, Callback } from 'aws-lambda'
-const Octokit = require('@octokit/rest')
+import Octokit from '@octokit/rest'
 require('dotenv').config()
 
 const env = process.env
@@ -46,6 +46,10 @@ if (typeof env.GH_ORGANIZATIONS === 'string') {
 const octokit = new Octokit({
     auth,
 })
+
+// TODO: stop using paginate and manually page as needed to go back the 7 (or ideally a configurable
+// amount of time) days for performance reasons.
+
 const orgPromises = organizations.map(org =>
     octokit.paginate('GET /users/:username/events/orgs/:org', {
         username,
