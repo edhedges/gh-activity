@@ -1,0 +1,8 @@
+language: node_js
+cache: npm
+script: bin/build-lambda
+deploy:
+    provider: script
+    script: bin/deploy-lambda
+    on:
+        branch: master
