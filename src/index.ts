@@ -63,16 +63,18 @@ const allPromises = [
     ...orgPromises,
 ]
 
-const completeHandler = (callback: Callback<void>, error?: Error) => {
+const completeHandler = (
+    callback: Callback<void>,
+    error: Error | null = null
+) => {
     callback(error)
-    process.exit(typeof error === 'undefined' ? 0 : 1)
 }
 
-exports.handler = (
+const handler: Handler<any, void> = (
     _event: any,
     _context: Context,
     callback: Callback<void>
-) => {
+): void => {
     console.log('starting handler...')
     Promise.all(allPromises)
         .then(results => {
@@ -175,3 +177,5 @@ exports.handler = (
             completeHandler(callback, rejectionReason)
         })
 }
+
+exports.handler = handler
