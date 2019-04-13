@@ -68,11 +68,11 @@ const completeHandler = (callback: Callback<void>, error?: Error) => {
     process.exit(typeof error === 'undefined' ? 0 : 1)
 }
 
-const handler: Handler = (
+const handler: Handler = async (
     _event: any,
     _context: Context,
     callback: Callback<void>
-): void => {
+): Promise<void> => {
     Promise.all(allPromises)
         .then(results => {
             if (!results.length) {

@@ -14,5 +14,6 @@ deploy:
     runtime: 'nodejs8.10'
     module_name: 'build'
     handler_name: 'handler'
+    timeout: 30
     on:
         branch: master
