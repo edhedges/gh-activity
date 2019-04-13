@@ -6,7 +6,11 @@ language: node_js
 cache: npm
 script: bin/build-lambda
 deploy:
-    provider: script
-    script: bin/deploy-lambda
+    provider: lambda
+    function_name: 'gh-activity'
+    region: 'us-east-1'
+    role: 'arn:aws:iam::534616018104:role/service-role/gh-activity-role-y2k32tv5'
+    runtime: 'nodejs8.10'
+    handler_name: 'handler'
     on:
         branch: master
