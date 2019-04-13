@@ -12,6 +12,7 @@ deploy:
     region: 'us-east-1'
     role: 'arn:aws:iam::534616018104:role/service-role/gh-activity-role-y2k32tv5'
     runtime: 'nodejs8.10'
+    module_name: 'build'
     handler_name: 'handler'
     on:
         branch: master
