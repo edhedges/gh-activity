@@ -68,13 +68,13 @@ const completeHandler = (callback: Callback<void>, error?: Error) => {
     process.exit(typeof error === 'undefined' ? 0 : 1)
 }
 
-const handler: Handler = async (
+exports.handler = (
     _event: any,
     _context: Context,
     callback: Callback<void>
-): Promise<void> => {
+) => {
     console.log('starting handler...')
-    await Promise.all(allPromises)
+    Promise.all(allPromises)
         .then(results => {
             if (!results.length) {
                 throw Error('Empty results array upon promises being resolved')
@@ -175,5 +175,3 @@ const handler: Handler = async (
             completeHandler(callback, rejectionReason)
         })
 }
-
-exports.handler = handler
