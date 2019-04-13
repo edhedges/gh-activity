@@ -73,6 +73,7 @@ const handler: Handler = async (
     _context: Context,
     callback: Callback<void>
 ): Promise<void> => {
+    console.log('starting handler...')
     await Promise.all(allPromises)
         .then(results => {
             if (!results.length) {
@@ -149,6 +150,7 @@ const handler: Handler = async (
                     .join('\n\n')
 
             if (typeof slackWebhookUrl === 'undefined') {
+                console.log('slackWebhookUrl is undfined so ' + payloadText)
                 completeHandler(callback)
             } else {
                 axios
@@ -156,6 +158,7 @@ const handler: Handler = async (
                         text: payloadText,
                     })
                     .then(_ => {
+                        console.log('happy path completeHandler ...')
                         completeHandler(callback)
                     })
                     .catch(rejectionReason => {
@@ -163,13 +166,13 @@ const handler: Handler = async (
                             'Error POSTing results to slack webhook',
                             rejectionReason
                         )
-                        completeHandler(rejectionReason)
+                        completeHandler(callback, rejectionReason)
                     })
             }
         })
         .catch(rejectionReason => {
             console.error('Error resolving all promises', rejectionReason)
-            completeHandler(rejectionReason)
+            completeHandler(callback, rejectionReason)
         })
 }
 
