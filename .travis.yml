@@ -6,6 +6,7 @@ language: node_js
 cache: npm
 script: bin/build-lambda
 deploy:
+    skip_cleanup: true
     provider: lambda
     function_name: 'gh-activity'
     region: 'us-east-1'
