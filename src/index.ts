@@ -73,7 +73,7 @@ const handler: Handler = async (
     _context: Context,
     callback: Callback<void>
 ): Promise<void> => {
-    Promise.all(allPromises)
+    await Promise.all(allPromises)
         .then(results => {
             if (!results.length) {
                 throw Error('Empty results array upon promises being resolved')
