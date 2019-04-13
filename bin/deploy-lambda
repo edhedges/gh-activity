@@ -1,3 +1,4 @@
 #!/bin/bash
 
-node_modules/.bin/serverless deploy function -f gh-activity
+npm install -g serverless
+serverless deploy function -f gh-activity
