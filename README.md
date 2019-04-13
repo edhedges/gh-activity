@@ -4,7 +4,6 @@ Receive a Slack message summarizing your GitHub activity for the previous week! 
 
 ### TODOs
 
--   Add CI/CD (and the requisite branch rules) that deploys to Lambda upon successful PRs being merged into master.
 -   Improve speed/efficiency by not using `octokit.paginate`, but instead handle pagination up until the desired date.
 -   Add configurability
     -   Require explicitly intending personal (non-organization) activity be retrieved

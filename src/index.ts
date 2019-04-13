@@ -75,7 +75,6 @@ const handler: Handler<any, void> = (
     _context: Context,
     callback: Callback<void>
 ): void => {
-    console.log('starting handler...')
     Promise.all(allPromises)
         .then(results => {
             if (!results.length) {
@@ -152,7 +151,6 @@ const handler: Handler<any, void> = (
                     .join('\n\n')
 
             if (typeof slackWebhookUrl === 'undefined') {
-                console.log('slackWebhookUrl is undfined so ' + payloadText)
                 completeHandler(callback)
             } else {
                 axios
@@ -160,7 +158,6 @@ const handler: Handler<any, void> = (
                         text: payloadText,
                     })
                     .then(_ => {
-                        console.log('happy path completeHandler ...')
                         completeHandler(callback)
                     })
                     .catch(rejectionReason => {
