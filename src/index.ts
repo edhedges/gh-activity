@@ -2,67 +2,35 @@ import moment from 'moment'
 import axios from 'axios'
 import { Handler, Context, Callback } from 'aws-lambda'
 import Octokit from '@octokit/rest'
-require('dotenv').config()
+import { getOrganizationEvents, getPersonalEvents } from './events-api'
+import { getEnvironment } from './environment'
 
-const env = process.env
-if (typeof env.GH_PAT !== 'string' || env.GH_PAT.trim() === '') {
-    throw Error('Missing required GH_PAT environment variable')
-}
-if (typeof env.GH_USERNAME !== 'string' || env.GH_USERNAME.trim() === '') {
-    throw Error('Missing required GH_USERNAME environment variable')
-}
-
-let slackWebhookUrl: string | undefined
-if (
-    typeof env.SLACK_WEBHOOK_URL !== 'string' ||
-    env.SLACK_WEBHOOK_URL.trim() === ''
-) {
-    console.warn(
-        `No 'SLACK_WEBHOOK_URL' environment variable found. Results will be logged to the console.`
-    )
-} else {
-    slackWebhookUrl = env.SLACK_WEBHOOK_URL.trim()
-}
-
-const auth = env.GH_PAT.trim()
-const username = env.GH_USERNAME.trim()
-const organizations = []
-
-if (typeof env.GH_ORGANIZATIONS === 'string') {
-    try {
-        const envOrgs = JSON.parse(env.GH_ORGANIZATIONS.trim())
-        if (Array.isArray(envOrgs)) {
-            organizations.push(
-                ...envOrgs
-                    .filter(o => typeof o === 'string' && o.trim() !== '')
-                    .map(o => o as string)
-            )
-        }
-    } catch (err) {
-        throw err
-    }
-}
-
+const env = getEnvironment()
 const octokit = new Octokit({
-    auth,
+    auth: env.ghAccessToken,
 })
-
-// TODO: stop using paginate and manually page as needed to go back the 7 (or ideally a configurable
-// amount of time) days for performance reasons.
-
-const orgPromises = organizations.map(org =>
-    octokit.paginate('GET /users/:username/events/orgs/:org', {
-        username,
-        org,
-    })
-)
+const newestMoment = moment.utc()
+const baseGetEventArgs = {
+    octokit,
+    username: env.ghUsername,
+    timebox: {
+        newestMoment,
+        daysBack: env.daysBack,
+    },
+}
 const allPromises = [
-    octokit.paginate('GET /users/:username/events', {
-        username,
+    getOrganizationEvents({
+        organizations: env.ghOrganizations,
+        ...baseGetEventArgs,
     }),
-    ...orgPromises,
 ]
+if (!env.excludePersonal) {
+    allPromises.push(getPersonalEvents(baseGetEventArgs))
+}
 
+/**
+ * Implements simple wrapper around: https://docs.aws.amazon.com/lambda/latest/dg/nodejs-prog-model-handler.html#nodejs-prog-model-handler-callback
+ */
 const completeHandler = (
     callback: Callback<void>,
     error: Error | null = null
@@ -81,27 +49,9 @@ const handler: Handler<any, void> = (
                 throw Error('Empty results array upon promises being resolved')
             }
 
-            const yesterday = moment.utc().subtract(1, 'day')
             const allResults: any[] = []
             results.forEach(r => {
-                const userResults = r
-                    .filter((d: any) => {
-                        if (d.actor.login !== username) {
-                            return false
-                        }
-
-                        const createdAtMoment = moment(d.created_at)
-                        return yesterday.diff(createdAtMoment, 'days') < 7
-                    })
-                    .sort(function(a: any, b: any) {
-                        // Turn your strings into dates, and then subtract them
-                        // to get a value that is either negative, positive, or zero.
-                        return (
-                            new Date(b.created_at).getTime() -
-                            new Date(a.created_at).getTime()
-                        )
-                    })
-                userResults.forEach((rr: any) => {
+                r.forEach((rr: any) => {
                     // only add unique ids to results
                     if (allResults.findIndex(ar => ar.id === rr.id) === -1) {
                         // TODO: Add configurability for these results
@@ -110,7 +60,7 @@ const handler: Handler<any, void> = (
                         // and are merged, but were not merged by the author of the PR
 
                         // TODO: Break out logic here into functions describing the different
-                        // conditional that allow a resutls to be added
+                        // conditional that allow a results to be added
 
                         // Events that should be included:
                         // - PRs that were closed and merged (done)
@@ -119,6 +69,17 @@ const handler: Handler<any, void> = (
                         // - Repository was started
                         // - Branch created???
                         // - Checkout https://developer.github.com/v3/activity/events/types/ to discover other important ones
+
+                        // TODO: Only include commits that are to master, but not from a PR... (PRs contain a commits url which can be retrieved)
+                        // if (rr.type === 'PushEvent') {
+                        //     console.log(JSON.stringify(rr, null, 2))
+                        //     allResults.push(
+                        //         ...rr.payload.commits.map((c: any) => ({
+                        //             commit: c,
+                        //             ...rr,
+                        //         }))
+                        //     )
+                        // }
                         if (
                             rr.type === 'PullRequestEvent' &&
                             rr.payload.action === 'closed' &&
@@ -130,6 +91,7 @@ const handler: Handler<any, void> = (
                 })
             })
             const simplifiedResults = allResults.map(r => {
+                // if (r.type === 'PullRequestEvent') {
                 const pr = r.payload.pull_request
                 return {
                     url: pr.html_url,
@@ -139,6 +101,18 @@ const handler: Handler<any, void> = (
                         'ddd, MMM Do YYYY, h:mm a'
                     ),
                 }
+                // } else if (r.type === 'PushEvent') {
+                //     return {
+                //         url: r.commit.url,
+                //         title: r.commit.message,
+                //         body: '',
+                //         createdAt: moment(r.created_at).format(
+                //             'ddd, MMM Do YYYY, h:mm a'
+                //         ),
+                //     }
+                // } else {
+                //     return {}
+                // }
             })
             const payloadText =
                 '*My last week on GitHub*\n\n' +
@@ -150,11 +124,11 @@ const handler: Handler<any, void> = (
                     })
                     .join('\n\n')
 
-            if (typeof slackWebhookUrl === 'undefined') {
+            if (typeof env.slackWebhookUrl === 'undefined') {
                 completeHandler(callback)
             } else {
                 axios
-                    .post(slackWebhookUrl, {
+                    .post(env.slackWebhookUrl, {
                         text: payloadText,
                     })
                     .then(_ => {
