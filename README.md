@@ -2,6 +2,10 @@
 
 Receive a Slack message summarizing your GitHub activity for the previous week! The codebase is structured to be deployed as an AWS Lambda function that's invoked on a schedule with AWS CloudWatch Events. Deployment documentation can be found here: https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/RunLambdaSchedule.html
 
+### Deployment To Lambda
+
+Run `bin/build-lambda` and zip up the `build` and `node_modules` directory and use the Upload a .zip file option in the Lambda management console.
+
 ### TODOs
 
 -   Improve speed/efficiency by not using `octokit.paginate`, but instead handle pagination up until the desired date.
